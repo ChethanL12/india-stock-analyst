@@ -3,38 +3,50 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 
 export const maxDuration = 60;
 
-const SYSTEM_PROMPT = `You are a senior equity research analyst specializing in Indian stock markets (NSE/BSE). 
-You have deep expertise in fundamental analysis, technical analysis, market sentiment, and institutional flows.
-You always provide specific numbers, dates, and data points. You never give vague answers.
+const SYSTEM_PROMPT = `You are a senior equity research analyst at a top-tier investment bank, specializing in Indian stock markets (NSE/BSE).
+You produce institutional-quality research notes with specific numbers, exact dates, and precise data points sourced from financial databases.
+You NEVER guess or approximate. Every number you cite must come from a real, verifiable source.
+You cross-reference data across multiple sources before including it.
 You format your responses as valid JSON only - no markdown, no code fences, no explanation outside the JSON.
-Always use the ₹ symbol for Indian Rupee amounts, never "Rs." or "INR".`;
+Always use the ₹ symbol for Indian Rupee amounts.`;
 
 const buildAnalysisPrompt = (query: string) => `
 Analyze the Indian stock: "${query}"
 
-Search the web for the most current and accurate information from sources like NSE/BSE official data, 
-Screener.in, Trendlyne, Moneycontrol, Economic Times Markets, Livemint, TradingView India, Zerodha Pulse, 
-Business Standard, and recent brokerage research reports.
+Search the web thoroughly using these specific sources:
+- NSE India (nseindia.com) and BSE India (bseindia.com) for official filings and price data
+- Screener.in for financial statements, ratios, and peer comparison
+- Trendlyne.com for analyst consensus targets, brokerage reports, and technical data
+- Moneycontrol.com for quarterly results, balance sheet, and analyst recommendations
+- Economic Times, Livemint, Business Standard for recent news and catalysts
+- TradingView for technical levels and chart data
+- Company investor relations page for latest presentations
 
-Return a JSON object with EXACTLY this structure (no other text, no markdown, no code fences):
+Return a JSON object with EXACTLY this structure. For EACH section, provide the specific sources you used for that section's data:
 
 {
-  "ticker": "NSE ticker symbol (e.g., RELIANCE, INFY, TCS)",
-  "companyName": "Full company name",
-  "exchange": "NSE or BSE",
-  "sector": "Sector name",
+  "ticker": "NSE ticker symbol",
+  "companyName": "Full registered company name",
+  "exchange": "NSE",
+  "sector": "Sector classification",
   "movementAnalysis": {
-    "socialNarrative": "What retail investors on X/Twitter/Reddit/financial forums are saying about this stock. What hashtags, themes, or memes are circulating? Under 3 sentences.",
-    "actualCatalyst": "The specific real catalyst driving the move - earnings date/numbers, contract win value, partnership details, policy change, management change etc. Be specific with exact numbers, percentages, and dates. Under 3 sentences.",
-    "institutionalView": "What professional analysts are saying. Include specific brokerage names, recent target price changes, upgrades/downgrades with dates. Under 3 sentences.",
-    "oneLinerSummary": "The stock is moving because [specific reason], but [the overlooked factor nobody is talking about] is the part nobody is talking about."
+    "socialNarrative": "What retail investors on X/Twitter, Reddit, TradingView community, Moneycontrol forums are saying. Mention specific themes, hashtags, or debates. Max 3 sentences.",
+    "actualCatalyst": "The specific catalyst with EXACT numbers and dates. E.g., 'Q4 FY26 results announced on April 29, 2026 showed revenue of ₹51,524 Cr (+29% YoY), PAT of ₹9,352 Cr (+89% YoY)'. Be this specific.",
+    "institutionalView": "Name specific brokerages with their exact target prices and dates. E.g., 'ICICI Direct on April 24, 2026 maintained HOLD with TP ₹308. Motilal Oswal has TP ₹857 as of May 7, 2026.' Be this specific.",
+    "oneLinerSummary": "The stock is moving because [specific catalyst], but [the overlooked risk/factor nobody discusses] is the part nobody is talking about.",
+    "sources": [
+      {"title": "Exact article/page title", "url": "https://real-source-url.com/specific-page"}
+    ]
   },
   "fundamentalSnapshot": {
-    "priceAndMarketCap": "₹XXX | Market Cap: ₹X.XXL Cr | 30D: +XX.X%",
-    "valuationMultiples": "Forward P/E: X.X (sector avg: Y.Y) | EV/Sales: X.X (sector avg: Y.Y). Include a one-line interpretation.",
-    "growthMetrics": "Q[X] FY[YY] Revenue: ₹X,XXX Cr (+XX% YoY) | PAT: ₹XXX Cr (+XX% YoY). Include any key highlights.",
-    "balanceSheet": "Cash: ₹X,XXX Cr | Debt: ₹X,XXX Cr | Net Debt/Equity: X.X | Shares outstanding: X.X Cr (dilution: +X% YoY or flat)",
-    "fairValueAssessment": "Is the stock trading above, at, or below fundamental fair value? Show the math using DCF or peer multiple approach. Max 1 paragraph."
+    "priceAndMarketCap": "₹XXX.XX | Market Cap: ₹X.XXL Cr | 30D: +XX.X%",
+    "valuationMultiples": "Forward P/E: X.X (sector avg: Y.Y) | EV/Sales: X.X (sector avg: Y.Y). One-line interpretation of whether cheap/expensive vs peers.",
+    "growthMetrics": "Q[X] FY[YY] Revenue: ₹XX,XXX Cr (+XX% YoY) | PAT: ₹X,XXX Cr (+XX% YoY). Key highlights: EBITDA margin, ARPU, subscriber count, or segment-specific metrics.",
+    "balanceSheet": "Cash: ₹XX,XXX Cr | Debt: ₹XX,XXX Cr | Net Debt/Equity: X.X | Shares outstanding: XXX Cr (dilution: +X.X% YoY or flat)",
+    "fairValueAssessment": "Show the math: 'Using FY27 EPS of ₹XX and a peer multiple of X.Xx gives fair value of ₹XXX. Current price of ₹XXX implies X% discount/premium.' One paragraph max.",
+    "sources": [
+      {"title": "Exact page title from Screener/NSE/Moneycontrol", "url": "https://real-url.com/page"}
+    ]
   },
   "priceTargetFramework": {
     "scenarios": [
@@ -42,52 +54,51 @@ Return a JSON object with EXACTLY this structure (no other text, no markdown, no
         "label": "Bear Case",
         "timeframe": "3-6 months",
         "price": "₹XXX",
-        "rationale": "Specific bear scenario. Math: X.X x ₹XX EPS = ₹XXX"
+        "rationale": "If [specific negative catalyst]. Math: X.Xx EPS of ₹XX = ₹XXX"
       },
       {
         "label": "Base Case",
         "timeframe": "6-12 months",
         "price": "₹XXX",
-        "rationale": "Specific base scenario with execution assumptions. Math shown."
+        "rationale": "If execution holds. Math: X.Xx EPS of ₹XX = ₹XXX. Aligned with [brokerage] fair value of ₹XXX."
       },
       {
         "label": "Bull Case",
         "timeframe": "12-18 months",
         "price": "₹XXX",
-        "rationale": "Specific bull scenario. What needs to work. Math shown."
+        "rationale": "If [specific positive catalysts]. Math: X.Xx EPS of ₹XX = ₹XXX"
       },
       {
         "label": "Stretched Bull",
         "timeframe": "24 months",
         "price": "₹XXX",
-        "rationale": "Absolute ceiling scenario. All catalysts firing. Math shown."
+        "rationale": "All catalysts firing. Math: X.Xx EPS of ₹XX = ₹XXX"
       }
     ],
-    "entryZone": "₹XXX - ₹XXX (specific range with technical or fundamental reason)",
-    "trimLevels": "First trim at ₹XXX (+XX%), full exit at ₹XXX (+XX%)",
-    "hardStop": "₹XXX (below this level, specific thesis-breaking reason)"
-  },
-  "sources": [
-    {
-      "title": "Exact page title of the source you consulted",
-      "url": "https://actual-website-url.com/specific-page",
-      "section": "movement"
-    }
-  ]
+    "entryZone": "₹XXX - ₹XXX (cite technical support level or brokerage accumulation zone)",
+    "trimLevels": "First trim at ₹XXX (+XX% from ₹XXX), full exit at ₹XXX (+XX% from ₹XXX)",
+    "hardStop": "₹XXX (below this, [specific thesis-breaking reason])",
+    "sources": [
+      {"title": "Brokerage report or analyst page title", "url": "https://trendlyne.com/or/moneycontrol/page"}
+    ]
+  }
 }
 
-CRITICAL INSTRUCTIONS FOR SOURCES:
-- List every specific web page you actually searched and used to derive data.
-- Each source MUST have the REAL, ACTUAL website URL (e.g., https://www.screener.in/company/VEDL/, https://trendlyne.com/equity/..., https://www.moneycontrol.com/...). 
-- NEVER use proxy URLs or search engine URLs. Use the actual source website URL.
-- Categorize each source by which section it most informed:
-  * "movement" = social narrative, catalyst, institutional views, news articles
-  * "fundamentals" = price data, P/E, revenue, balance sheet, financial data from Screener/NSE/BSE
-  * "priceTargets" = analyst targets, brokerage reports, valuation models from Trendlyne/Moneycontrol
-  * "general" = company overview, sector context
-- Include 6-10 sources minimum. Each must be a real URL you consulted.
+CRITICAL RULES:
+1. Every number must be sourced from actual web search results. Do not fabricate data.
+2. Each section has its own "sources" array. List 2-4 REAL source URLs per section.
+3. Source URLs must be actual website URLs (screener.in, trendlyne.com, moneycontrol.com, nseindia.com, etc.)
+4. NEVER use Google proxy URLs (vertexaisearch.cloud.google.com). Only real source URLs.
+5. Cross-reference key numbers (price, market cap, P/E) across at least 2 sources.
+6. For price targets, cite specific brokerage names and their published targets with dates.
+7. Use ₹ symbol for all Rupee amounts.
 
-IMPORTANT: Return ONLY the JSON object. No markdown code fences. No backticks. No explanation text. Just pure JSON.`;
+Return ONLY the JSON. No markdown. No code fences. No explanation.`;
+
+interface SourceItem {
+  title: string;
+  url: string;
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -122,18 +133,13 @@ export async function POST(request: NextRequest) {
     const response = result.response;
     const outputText = response.text();
 
-    // Parse the JSON from the response
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let analysisData: Record<string, any>;
     try {
-      // Remove markdown code fences if present
       let cleanText = outputText.trim();
       cleanText = cleanText.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "");
-
       const jsonMatch = cleanText.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) {
-        throw new Error("No JSON found in response");
-      }
+      if (!jsonMatch) throw new Error("No JSON found in response");
       analysisData = JSON.parse(jsonMatch[0]);
     } catch (parseErr) {
       console.error("Failed to parse AI response:", outputText.slice(0, 500), parseErr);
@@ -143,60 +149,49 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Use AI-provided sources (real URLs) as the primary source list
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const aiSources: Array<{ title: string; url: string; section: string }> = 
-      (analysisData.sources || []).filter(
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (s: any) => s.url && s.url.startsWith("http") && !s.url.includes("vertexaisearch")
+    // Clean sources - filter out proxy URLs
+    const cleanSources = (sources: SourceItem[] | undefined): SourceItem[] => {
+      if (!Array.isArray(sources)) return [];
+      return sources.filter(
+        (s) => s.url && s.url.startsWith("http") && !s.url.includes("vertexaisearch")
       );
+    };
 
-    // Also extract grounding sources from Gemini metadata as supplement
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const candidate = response.candidates?.[0] as any;
-    const groundingMetadata = candidate?.groundingMetadata;
-    const seenUrls = new Set(aiSources.map((s) => s.url));
+    // Extract per-section sources
+    const movementSources = cleanSources(analysisData.movementAnalysis?.sources);
+    const fundamentalSources = cleanSources(analysisData.fundamentalSnapshot?.sources);
+    const priceSources = cleanSources(analysisData.priceTargetFramework?.sources);
 
-    if (groundingMetadata?.groundingChunks) {
-      for (const chunk of groundingMetadata.groundingChunks) {
-        const web = chunk.web;
-        if (web?.uri && !seenUrls.has(web.uri) && !web.uri.includes("vertexaisearch")) {
-          seenUrls.add(web.uri);
-          const url = web.uri.toLowerCase();
-          let section = "general";
-          if (url.includes("trendlyne") || url.includes("target") || url.includes("forecast")) {
-            section = "priceTargets";
-          } else if (url.includes("screener") || url.includes("moneycontrol") || url.includes("nse") || url.includes("bse")) {
-            section = "fundamentals";
-          } else if (url.includes("twitter") || url.includes("reddit") || url.includes("economic") || url.includes("livemint") || url.includes("business-standard")) {
-            section = "movement";
-          }
-          aiSources.push({
-            title: web.title || web.uri,
-            url: web.uri,
-            section,
-          });
-        }
-      }
-    }
+    // Build all sources list (for backward compat)
+    const allSources = [
+      ...movementSources.map((s: SourceItem) => ({ ...s, section: "movement" })),
+      ...fundamentalSources.map((s: SourceItem) => ({ ...s, section: "fundamentals" })),
+      ...priceSources.map((s: SourceItem) => ({ ...s, section: "priceTargets" })),
+    ];
 
-    const ticker = analysisData.ticker || query.trim().toUpperCase();
-    const companyName = analysisData.companyName || query.trim();
-    const exchange = analysisData.exchange || "NSE";
-    const sector = analysisData.sector || "Unknown";
+    // Remove sources from nested objects before sending (they'll be top-level)
+    const movementAnalysis = { ...analysisData.movementAnalysis };
+    delete movementAnalysis.sources;
+    const fundamentalSnapshot = { ...analysisData.fundamentalSnapshot };
+    delete fundamentalSnapshot.sources;
+    const priceTargetFramework = { ...analysisData.priceTargetFramework };
+    delete priceTargetFramework.sources;
 
     const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
     return NextResponse.json({
       id,
-      ticker,
-      companyName,
-      exchange,
-      sector,
-      movementAnalysis: analysisData.movementAnalysis ?? {},
-      fundamentalSnapshot: analysisData.fundamentalSnapshot ?? {},
-      priceTargetFramework: analysisData.priceTargetFramework ?? {},
-      sources: aiSources,
+      ticker: analysisData.ticker || query.trim().toUpperCase(),
+      companyName: analysisData.companyName || query.trim(),
+      exchange: analysisData.exchange || "NSE",
+      sector: analysisData.sector || "Unknown",
+      movementAnalysis,
+      fundamentalSnapshot,
+      priceTargetFramework,
+      sources: allSources,
+      movementSources,
+      fundamentalSources,
+      priceSources,
       analyzedAt: new Date().toISOString(),
     });
   } catch (err) {

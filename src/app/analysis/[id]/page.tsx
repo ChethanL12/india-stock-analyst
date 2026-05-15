@@ -18,6 +18,53 @@ import { format } from "date-fns";
 import { getAnalysis } from "@/lib/store";
 import type { StockAnalysis } from "@/lib/types";
 
+interface SourceItem {
+  title: string;
+  url: string;
+  section?: string;
+}
+
+function SourceChips({ sources, label }: { sources: SourceItem[]; label: string }) {
+  if (!sources || sources.length === 0) return null;
+  const colorMap: Record<string, string> = {
+    movement: "bg-blue-500/10 text-blue-400 border-blue-500/20",
+    fundamentals: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
+    priceTargets: "bg-amber-500/10 text-amber-400 border-amber-500/20",
+  };
+  const colorClass = colorMap[label] || "bg-secondary text-muted-foreground border-border";
+
+  return (
+    <div className="mt-4 pt-3 border-t border-border/30">
+      <p className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider mb-2">
+        Sources for this section
+      </p>
+      <div className="flex flex-wrap gap-2">
+        {sources.map((source, idx) => (
+          <a
+            key={idx}
+            href={source.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={`group inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded border text-[11px] font-mono hover:opacity-80 transition-opacity ${colorClass}`}
+          >
+            <ExternalLink className="w-3 h-3 shrink-0" />
+            <span className="truncate max-w-[200px]">{source.title}</span>
+            <span className="text-[9px] opacity-60 hidden sm:inline">
+              {(() => {
+                try {
+                  return new URL(source.url).hostname.replace("www.", "");
+                } catch {
+                  return "";
+                }
+              })()}
+            </span>
+          </a>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function AnalysisPage() {
   const params = useParams();
   const id = params.id as string;
@@ -60,6 +107,12 @@ export default function AnalysisPage() {
 
   const { movementAnalysis, fundamentalSnapshot, priceTargetFramework } =
     analysis;
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const raw = analysis as any;
+  const movementSources: SourceItem[] = raw.movementSources || [];
+  const fundamentalSources: SourceItem[] = raw.fundamentalSources || [];
+  const priceSources: SourceItem[] = raw.priceSources || [];
 
   return (
     <div className="min-h-dvh pb-24">
@@ -150,6 +203,9 @@ export default function AnalysisPage() {
               <span>{movementAnalysis.oneLinerSummary}</span>
             </p>
           </div>
+
+          {/* Movement Sources */}
+          <SourceChips sources={movementSources} label="movement" />
         </section>
 
         {/* Section 2: Fundamental Snapshot */}
@@ -202,6 +258,9 @@ export default function AnalysisPage() {
               {fundamentalSnapshot.fairValueAssessment}
             </p>
           </div>
+
+          {/* Fundamental Sources */}
+          <SourceChips sources={fundamentalSources} label="fundamentals" />
         </section>
 
         {/* Section 3: Price Framework */}
@@ -273,10 +332,14 @@ export default function AnalysisPage() {
               </p>
             </div>
           </div>
+
+          {/* Price Target Sources */}
+          <SourceChips sources={priceSources} label="priceTargets" />
         </section>
 
-        {/* Section 4: Sources */}
-        {analysis.sources && analysis.sources.length > 0 && (
+        {/* Section 4: All Sources (fallback if per-section sources empty) */}
+        {analysis.sources && analysis.sources.length > 0 && 
+         movementSources.length === 0 && fundamentalSources.length === 0 && priceSources.length === 0 && (
           <section className="space-y-4 pt-8 border-t border-border/50">
             <h2 className="text-xl font-mono uppercase tracking-widest text-primary flex items-center gap-2 border-l-4 border-primary pl-4">
               <BookOpen className="w-5 h-5" /> Sources
