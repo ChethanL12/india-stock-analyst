@@ -100,15 +100,16 @@ interface MessageOutputItem {
   content: OutputTextContent[];
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function extractCitationsFromResponse(
-  output: Array<{ type: string; [key: string]: unknown }>
+  output: any[]
 ): Array<{ title: string; url: string }> {
   const citations: Array<{ title: string; url: string }> = [];
   const seen = new Set<string>();
 
   for (const item of output) {
     if (item.type !== "message") continue;
-    const msgItem = item as unknown as MessageOutputItem;
+    const msgItem = item as MessageOutputItem;
     for (const content of msgItem.content ?? []) {
       if (content.type !== "output_text") continue;
       for (const annotation of content.annotations ?? []) {
@@ -160,19 +161,17 @@ export async function POST(request: NextRequest) {
       ],
     });
 
-    const outputItems = response.output as Array<{
-      type: string;
-      [key: string]: unknown;
-    }>;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const outputItems = response.output as any[];
 
     // Extract the text from the response
     const outputText = outputItems
-      .filter((item) => item.type === "message")
+      .filter((item: any) => item.type === "message")
       .flatMap(
-        (item) => (item as unknown as MessageOutputItem).content ?? []
+        (item: any) => (item as MessageOutputItem).content ?? []
       )
-      .filter((c) => c.type === "output_text")
-      .map((c) => c.text)
+      .filter((c: any) => c.type === "output_text")
+      .map((c: any) => c.text)
       .join("");
 
     // Extract URL citations from annotations
