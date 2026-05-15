@@ -1,0 +1,61 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400;1,700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: 220 40% 7%;
+  --foreground: 214 32% 91%;
+  --border: 220 40% 15%;
+  --input: 220 40% 15%;
+  --ring: 38 92% 50%;
+
+  --card: 220 40% 9%;
+  --card-foreground: 214 32% 91%;
+
+  --popover: 220 40% 9%;
+  --popover-foreground: 214 32% 91%;
+
+  --primary: 38 92% 50%;
+  --primary-foreground: 220 40% 7%;
+
+  --secondary: 220 40% 12%;
+  --secondary-foreground: 214 32% 91%;
+
+  --muted: 220 40% 12%;
+  --muted-foreground: 214 15% 60%;
+
+  --accent: 38 92% 50%;
+  --accent-foreground: 220 40% 7%;
+
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 214 32% 91%;
+
+  --radius: 0.25rem;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply font-sans antialiased bg-background text-foreground;
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: hsl(220 40% 9%);
+}
+::-webkit-scrollbar-thumb {
+  background: hsl(220 40% 20%);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(220 40% 30%);
+}
