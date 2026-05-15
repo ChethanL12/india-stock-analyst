@@ -6,14 +6,15 @@ export const maxDuration = 60;
 const SYSTEM_PROMPT = `You are a senior equity research analyst specializing in Indian stock markets (NSE/BSE). 
 You have deep expertise in fundamental analysis, technical analysis, market sentiment, and institutional flows.
 You always provide specific numbers, dates, and data points. You never give vague answers.
-You format your responses as valid JSON only - no markdown, no code fences, no explanation outside the JSON.`;
+You format your responses as valid JSON only - no markdown, no code fences, no explanation outside the JSON.
+Always use the ₹ symbol for Indian Rupee amounts, never "Rs." or "INR".`;
 
 const buildAnalysisPrompt = (query: string) => `
 Analyze the Indian stock: "${query}"
 
 Search the web for the most current and accurate information from sources like NSE/BSE official data, 
 Screener.in, Trendlyne, Moneycontrol, Economic Times Markets, Livemint, TradingView India, Zerodha Pulse, 
-and recent brokerage research reports.
+Business Standard, and recent brokerage research reports.
 
 Return a JSON object with EXACTLY this structure (no other text, no markdown, no code fences):
 
@@ -29,10 +30,10 @@ Return a JSON object with EXACTLY this structure (no other text, no markdown, no
     "oneLinerSummary": "The stock is moving because [specific reason], but [the overlooked factor nobody is talking about] is the part nobody is talking about."
   },
   "fundamentalSnapshot": {
-    "priceAndMarketCap": "Current price in INR, market cap in Cr/Lakh Cr, 30-day % change. E.g.: Rs.2,456 | Market Cap: Rs.16.5L Cr | 30D: +12.4%",
+    "priceAndMarketCap": "₹XXX | Market Cap: ₹X.XXL Cr | 30D: +XX.X%",
     "valuationMultiples": "Forward P/E: X.X (sector avg: Y.Y) | EV/Sales: X.X (sector avg: Y.Y). Include a one-line interpretation.",
-    "growthMetrics": "Q[X] FY[YY] Revenue: Rs.X,XXX Cr (+XX% YoY) | PAT: Rs.XXX Cr (+XX% YoY). Include any key highlights.",
-    "balanceSheet": "Cash: Rs.X,XXX Cr | Debt: Rs.X,XXX Cr | Net Debt/Equity: X.X | Shares outstanding: X.X Cr (dilution: +X% YoY or flat)",
+    "growthMetrics": "Q[X] FY[YY] Revenue: ₹X,XXX Cr (+XX% YoY) | PAT: ₹XXX Cr (+XX% YoY). Include any key highlights.",
+    "balanceSheet": "Cash: ₹X,XXX Cr | Debt: ₹X,XXX Cr | Net Debt/Equity: X.X | Shares outstanding: X.X Cr (dilution: +X% YoY or flat)",
     "fairValueAssessment": "Is the stock trading above, at, or below fundamental fair value? Show the math using DCF or peer multiple approach. Max 1 paragraph."
   },
   "priceTargetFramework": {
@@ -40,35 +41,53 @@ Return a JSON object with EXACTLY this structure (no other text, no markdown, no
       {
         "label": "Bear Case",
         "timeframe": "3-6 months",
-        "price": "Rs.X,XXX",
-        "rationale": "Specific bear scenario. Math: X.X x Rs.XX EPS = Rs.X,XXX"
+        "price": "₹XXX",
+        "rationale": "Specific bear scenario. Math: X.X x ₹XX EPS = ₹XXX"
       },
       {
         "label": "Base Case",
         "timeframe": "6-12 months",
-        "price": "Rs.X,XXX",
+        "price": "₹XXX",
         "rationale": "Specific base scenario with execution assumptions. Math shown."
       },
       {
         "label": "Bull Case",
         "timeframe": "12-18 months",
-        "price": "Rs.X,XXX",
+        "price": "₹XXX",
         "rationale": "Specific bull scenario. What needs to work. Math shown."
       },
       {
         "label": "Stretched Bull",
         "timeframe": "24 months",
-        "price": "Rs.X,XXX",
+        "price": "₹XXX",
         "rationale": "Absolute ceiling scenario. All catalysts firing. Math shown."
       }
     ],
-    "entryZone": "Rs.X,XXX - Rs.X,XXX (specific range with technical or fundamental reason)",
-    "trimLevels": "First trim at Rs.X,XXX (+XX%), full exit at Rs.X,XXX (+XX%)",
-    "hardStop": "Rs.X,XXX (below this level, specific thesis-breaking reason)"
-  }
+    "entryZone": "₹XXX - ₹XXX (specific range with technical or fundamental reason)",
+    "trimLevels": "First trim at ₹XXX (+XX%), full exit at ₹XXX (+XX%)",
+    "hardStop": "₹XXX (below this level, specific thesis-breaking reason)"
+  },
+  "sources": [
+    {
+      "title": "Exact page title of the source you consulted",
+      "url": "https://actual-website-url.com/specific-page",
+      "section": "movement"
+    }
+  ]
 }
 
-IMPORTANT: Return ONLY the JSON object. No markdown code fences. No backticks. No explanation text before or after. Just pure JSON.`;
+CRITICAL INSTRUCTIONS FOR SOURCES:
+- List every specific web page you actually searched and used to derive data.
+- Each source MUST have the REAL, ACTUAL website URL (e.g., https://www.screener.in/company/VEDL/, https://trendlyne.com/equity/..., https://www.moneycontrol.com/...). 
+- NEVER use proxy URLs or search engine URLs. Use the actual source website URL.
+- Categorize each source by which section it most informed:
+  * "movement" = social narrative, catalyst, institutional views, news articles
+  * "fundamentals" = price data, P/E, revenue, balance sheet, financial data from Screener/NSE/BSE
+  * "priceTargets" = analyst targets, brokerage reports, valuation models from Trendlyne/Moneycontrol
+  * "general" = company overview, sector context
+- Include 6-10 sources minimum. Each must be a real URL you consulted.
+
+IMPORTANT: Return ONLY the JSON object. No markdown code fences. No backticks. No explanation text. Just pure JSON.`;
 
 export async function POST(request: NextRequest) {
   try {
@@ -103,37 +122,6 @@ export async function POST(request: NextRequest) {
     const response = result.response;
     const outputText = response.text();
 
-    // Extract grounding sources from Gemini's search metadata
-    const sources: Array<{ title: string; url: string; section: string }> = [];
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const candidate = response.candidates?.[0] as any;
-    const groundingMetadata = candidate?.groundingMetadata;
-
-    if (groundingMetadata?.groundingChunks) {
-      const seen = new Set<string>();
-      for (const chunk of groundingMetadata.groundingChunks) {
-        const web = chunk.web;
-        if (web?.uri && !seen.has(web.uri)) {
-          seen.add(web.uri);
-          // Categorize by domain
-          const url = web.uri.toLowerCase();
-          let section = "general";
-          if (url.includes("trendlyne") || url.includes("target") || url.includes("forecast")) {
-            section = "priceTargets";
-          } else if (url.includes("screener") || url.includes("moneycontrol") || url.includes("nse") || url.includes("bse")) {
-            section = "fundamentals";
-          } else if (url.includes("twitter") || url.includes("reddit") || url.includes("economic") || url.includes("livemint") || url.includes("business-standard")) {
-            section = "movement";
-          }
-          sources.push({
-            title: web.title || web.uri,
-            url: web.uri,
-            section,
-          });
-        }
-      }
-    }
-
     // Parse the JSON from the response
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let analysisData: Record<string, any>;
@@ -155,6 +143,43 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Use AI-provided sources (real URLs) as the primary source list
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const aiSources: Array<{ title: string; url: string; section: string }> = 
+      (analysisData.sources || []).filter(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (s: any) => s.url && s.url.startsWith("http") && !s.url.includes("vertexaisearch")
+      );
+
+    // Also extract grounding sources from Gemini metadata as supplement
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const candidate = response.candidates?.[0] as any;
+    const groundingMetadata = candidate?.groundingMetadata;
+    const seenUrls = new Set(aiSources.map((s) => s.url));
+
+    if (groundingMetadata?.groundingChunks) {
+      for (const chunk of groundingMetadata.groundingChunks) {
+        const web = chunk.web;
+        if (web?.uri && !seenUrls.has(web.uri) && !web.uri.includes("vertexaisearch")) {
+          seenUrls.add(web.uri);
+          const url = web.uri.toLowerCase();
+          let section = "general";
+          if (url.includes("trendlyne") || url.includes("target") || url.includes("forecast")) {
+            section = "priceTargets";
+          } else if (url.includes("screener") || url.includes("moneycontrol") || url.includes("nse") || url.includes("bse")) {
+            section = "fundamentals";
+          } else if (url.includes("twitter") || url.includes("reddit") || url.includes("economic") || url.includes("livemint") || url.includes("business-standard")) {
+            section = "movement";
+          }
+          aiSources.push({
+            title: web.title || web.uri,
+            url: web.uri,
+            section,
+          });
+        }
+      }
+    }
+
     const ticker = analysisData.ticker || query.trim().toUpperCase();
     const companyName = analysisData.companyName || query.trim();
     const exchange = analysisData.exchange || "NSE";
@@ -171,7 +196,7 @@ export async function POST(request: NextRequest) {
       movementAnalysis: analysisData.movementAnalysis ?? {},
       fundamentalSnapshot: analysisData.fundamentalSnapshot ?? {},
       priceTargetFramework: analysisData.priceTargetFramework ?? {},
-      sources,
+      sources: aiSources,
       analyzedAt: new Date().toISOString(),
     });
   } catch (err) {
