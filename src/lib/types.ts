@@ -186,5 +186,23 @@ export interface StockAnalysis {
   // Section 6
   riskRegister: RiskItem[];
 
+  // Backward compat — old analyses may have this shape
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  movementAnalysis?: any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  priceTargetFramework?: any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  sources?: any[];
+
+  analyzedAt: string;
+}
+
+export interface StockAnalysisSummary {
+  id: string;
+  ticker: string;
+  companyName: string;
+  exchange: string;
+  sector: string;
+  oneLinerSummary: string;
   analyzedAt: string;
 }
