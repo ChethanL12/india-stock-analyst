@@ -49,7 +49,8 @@ export function getRecentAnalyses(): StockAnalysisSummary[] {
       companyName: a.companyName,
       exchange: a.exchange,
       sector: a.sector,
-      oneLinerSummary: a.movementAnalysis.oneLinerSummary,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      oneLinerSummary: (a as any).catalystSentiment?.bottomLine || (a as any).movementAnalysis?.oneLinerSummary || "",
       analyzedAt: a.analyzedAt,
     }));
 }

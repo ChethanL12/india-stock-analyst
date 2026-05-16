@@ -83,8 +83,9 @@ export default function Home() {
                 Researching Markets...
               </h2>
               <p className="text-muted-foreground font-mono text-sm max-w-md mx-auto">
-                Analyzing technicals, sentiment, and fundamentals for{" "}
-                {query}. This typically takes 15-30 seconds.
+                Fetching live data from Yahoo Finance, Screener.in, and
+                Tavily for {query}. Analyzing with Claude AI. This takes 30-60
+                seconds.
               </p>
             </div>
             <div className="w-full max-w-md bg-secondary/50 rounded-full h-1 overflow-hidden mt-4">
