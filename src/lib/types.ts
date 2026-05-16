@@ -14,6 +14,27 @@ export interface YahooPrice {
   fiftyTwoWeekHigh: number;
   fiftyTwoWeekLow: number;
   currency: string;
+  // Extended v10 fields (optional — only from quoteSummary)
+  pe?: number;
+  forwardPE?: number;
+  pb?: number;
+  eps?: number;
+  forwardEps?: number;
+  dividendYield?: number;
+  beta?: number;
+  evEbitda?: number;
+  evRevenue?: number;
+  debtToEquity?: number;
+  returnOnEquity?: number;
+  revenueGrowth?: number;
+  earningsGrowth?: number;
+  totalRevenue?: number;
+  ebitda?: number;
+  totalDebt?: number;
+  totalCash?: number;
+  operatingMargin?: number;
+  profitMargin?: number;
+  sharesOutstanding?: number;
 }
 
 export interface OHLCV {

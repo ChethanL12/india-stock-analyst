@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { fetchPriceData, fetchOHLCV } from "@/lib/fetchers/yahoo";
 import { fetchScreenerData } from "@/lib/fetchers/screener";
-import { searchNews, searchEvents } from "@/lib/fetchers/tavily";
+import { searchNews, searchEvents, searchFinancials, searchBalanceSheet, searchAnalystRatings } from "@/lib/fetchers/tavily";
 import { calculateTechnicals } from "@/lib/fetchers/technicals";
 import type { TavilyResult, SourceCitation } from "@/lib/types";
 
@@ -15,19 +15,38 @@ function buildDataBundle(results: Record<string, any>): string {
   lines.push("Every field below includes its data source and timestamp.");
   lines.push("Fields marked NULL mean data was unavailable from the API.\n");
 
-  // Yahoo price data
+  // Yahoo price + fundamentals data
   const yahoo = results.yahoo;
   if (yahoo.success && yahoo.data) {
     const d = yahoo.data;
     lines.push(`CURRENT_PRICE: ₹${d.currentPrice} [source: ${yahoo.source}, as_of: ${yahoo.fetchedAt}]`);
-    lines.push(`MARKET_CAP: ₹${(d.marketCap / 10000000).toFixed(0)} Cr [source: ${yahoo.source}]`);
+    lines.push(`MARKET_CAP: ₹${d.marketCap > 0 ? (d.marketCap / 10000000).toFixed(0) + " Cr" : "NULL"} [source: ${yahoo.source}]`);
     lines.push(`52W_HIGH: ₹${d.fiftyTwoWeekHigh} [source: ${yahoo.source}]`);
     lines.push(`52W_LOW: ₹${d.fiftyTwoWeekLow} [source: ${yahoo.source}]`);
+
+    // Extended Yahoo data (from v10 quoteSummary)
+    if (d.pe) lines.push(`TRAILING_PE: ${d.pe.toFixed(2)} [source: ${yahoo.source}]`);
+    if (d.forwardPE) lines.push(`FORWARD_PE: ${d.forwardPE.toFixed(2)} [source: ${yahoo.source}]`);
+    if (d.pb) lines.push(`PRICE_TO_BOOK: ${d.pb.toFixed(2)} [source: ${yahoo.source}]`);
+    if (d.eps) lines.push(`TRAILING_EPS: ₹${d.eps.toFixed(2)} [source: ${yahoo.source}]`);
+    if (d.forwardEps) lines.push(`FORWARD_EPS: ₹${d.forwardEps.toFixed(2)} [source: ${yahoo.source}]`);
+    if (d.evEbitda) lines.push(`EV_EBITDA: ${d.evEbitda.toFixed(2)} [source: ${yahoo.source}]`);
+    if (d.evRevenue) lines.push(`EV_REVENUE: ${d.evRevenue.toFixed(2)} [source: ${yahoo.source}]`);
+    if (d.dividendYield) lines.push(`DIVIDEND_YIELD: ${(d.dividendYield * 100).toFixed(2)}% [source: ${yahoo.source}]`);
+    if (d.beta) lines.push(`BETA: ${d.beta.toFixed(2)} [source: ${yahoo.source}]`);
+    if (d.debtToEquity) lines.push(`DEBT_TO_EQUITY: ${d.debtToEquity.toFixed(2)} [source: ${yahoo.source}]`);
+    if (d.returnOnEquity) lines.push(`RETURN_ON_EQUITY: ${(d.returnOnEquity * 100).toFixed(2)}% [source: ${yahoo.source}]`);
+    if (d.revenueGrowth) lines.push(`REVENUE_GROWTH_YOY: ${(d.revenueGrowth * 100).toFixed(1)}% [source: ${yahoo.source}]`);
+    if (d.earningsGrowth) lines.push(`EARNINGS_GROWTH_YOY: ${(d.earningsGrowth * 100).toFixed(1)}% [source: ${yahoo.source}]`);
+    if (d.totalRevenue) lines.push(`TTM_REVENUE: ₹${(d.totalRevenue / 10000000).toFixed(0)} Cr [source: ${yahoo.source}]`);
+    if (d.ebitda) lines.push(`TTM_EBITDA: ₹${(d.ebitda / 10000000).toFixed(0)} Cr [source: ${yahoo.source}]`);
+    if (d.totalDebt) lines.push(`TOTAL_DEBT: ₹${(d.totalDebt / 10000000).toFixed(0)} Cr [source: ${yahoo.source}]`);
+    if (d.totalCash) lines.push(`TOTAL_CASH: ₹${(d.totalCash / 10000000).toFixed(0)} Cr [source: ${yahoo.source}]`);
+    if (d.operatingMargin) lines.push(`OPERATING_MARGIN: ${(d.operatingMargin * 100).toFixed(1)}% [source: ${yahoo.source}]`);
+    if (d.profitMargin) lines.push(`PROFIT_MARGIN: ${(d.profitMargin * 100).toFixed(1)}% [source: ${yahoo.source}]`);
+    if (d.sharesOutstanding) lines.push(`SHARES_OUTSTANDING: ${(d.sharesOutstanding / 10000000).toFixed(2)} Cr [source: ${yahoo.source}]`);
   } else {
-    lines.push(`CURRENT_PRICE: NULL [source: ${yahoo.source}, error: ${yahoo.error}]`);
-    lines.push(`MARKET_CAP: NULL [source: ${yahoo.source}, error: ${yahoo.error}]`);
-    lines.push(`52W_HIGH: NULL [source: ${yahoo.source}]`);
-    lines.push(`52W_LOW: NULL [source: ${yahoo.source}]`);
+    lines.push(`YAHOO_DATA: NULL [source: ${yahoo.source}, error: ${yahoo.error}]`);
   }
 
   // Screener data
@@ -81,10 +100,37 @@ function buildDataBundle(results: Record<string, any>): string {
   if (news.success && news.data && news.data.length > 0) {
     lines.push(`\nRECENT_NEWS_ARTICLES:`);
     for (const item of news.data.slice(0, 10)) {
-      lines.push(`- "${item.title}" | ${item.url} | ${item.content.slice(0, 300)} [source: ${news.source}]`);
+      lines.push(`- "${item.title}" | ${item.url} | ${item.content.slice(0, 400)} [source: ${news.source}]`);
     }
   } else {
     lines.push(`\nRECENT_NEWS: NULL [source: ${news.source}, error: ${news.error}]`);
+  }
+
+  // Financial results data (targeted search)
+  const financials = results.financials;
+  if (financials.success && financials.data && financials.data.length > 0) {
+    lines.push(`\nFINANCIAL_RESULTS_DATA (from web search - extract exact numbers):`);
+    for (const item of financials.data.slice(0, 8)) {
+      lines.push(`- "${item.title}" | ${item.url} | ${item.content.slice(0, 500)} [source: ${financials.source}]`);
+    }
+  }
+
+  // Balance sheet / shareholding data (targeted search)
+  const balanceSheet = results.balanceSheet;
+  if (balanceSheet.success && balanceSheet.data && balanceSheet.data.length > 0) {
+    lines.push(`\nBALANCE_SHEET_SHAREHOLDING_DATA (from web search - extract exact numbers):`);
+    for (const item of balanceSheet.data.slice(0, 5)) {
+      lines.push(`- "${item.title}" | ${item.url} | ${item.content.slice(0, 500)} [source: ${balanceSheet.source}]`);
+    }
+  }
+
+  // Analyst ratings data (targeted search)
+  const analysts = results.analysts;
+  if (analysts.success && analysts.data && analysts.data.length > 0) {
+    lines.push(`\nANALYST_RATINGS_DATA (from web search):`);
+    for (const item of analysts.data.slice(0, 5)) {
+      lines.push(`- "${item.title}" | ${item.url} | ${item.content.slice(0, 400)} [source: ${analysts.source}]`);
+    }
   }
 
   // Events data
@@ -94,18 +140,16 @@ function buildDataBundle(results: Record<string, any>): string {
     for (const item of events.data.slice(0, 5)) {
       lines.push(`- "${item.title}" | ${item.url} | ${item.content.slice(0, 300)} [source: ${events.source}]`);
     }
-  } else {
-    lines.push(`\nUPCOMING_EVENTS: NULL [source: ${events.source}, error: ${events.error}]`);
   }
 
   return lines.join("\n");
 }
 
-// ── Analysis prompt for OpenRouter/Claude ────────────────────────────
+// ── Analysis prompt for OpenRouter ───────────────────────────────────
 function buildAnalysisPrompt(ticker: string, dataBundle: string): string {
   return `You are a senior equity research analyst at a top-tier investment bank specializing in Indian markets (NSE/BSE).
 
-Below is a VERIFIED DATA BUNDLE for the stock "${ticker}". This data was fetched from real APIs moments ago. Each data point includes its source and timestamp in square brackets.
+Below is a VERIFIED DATA BUNDLE for the stock "${ticker}". This data was fetched from real APIs and web searches moments ago. Each data point includes its source and timestamp in square brackets.
 
 ${dataBundle}
 
@@ -114,11 +158,12 @@ ${dataBundle}
 Using ONLY the data provided above, produce a comprehensive research report as a JSON object. Follow these rules strictly:
 
 ANTI-HALLUCINATION RULES:
-1. Every number you include MUST come from the data bundle above. If a field is NULL, write "data unavailable" — this is non-negotiable.
+1. Every number you include MUST come from the data bundle above. If a field is NULL, write "data unavailable" — do NOT estimate.
 2. Do NOT use your training knowledge to fill in any missing numbers.
-3. When citing a number, include which source it came from in parentheses, e.g., "(source: screener_in_via_apify)"
-4. If two data points contradict each other, flag the discrepancy rather than picking one silently.
-5. Use ₹ symbol for all Rupee amounts. Never round suspiciously — use exact numbers from the data.
+3. When citing a number, include which source it came from in parentheses, e.g., "(source: yahoo_finance_v10)"
+4. If two data points contradict each other, flag the discrepancy.
+5. Use ₹ symbol for all Rupee amounts.
+6. IMPORTANT: For the FINANCIAL_RESULTS_DATA and BALANCE_SHEET_SHAREHOLDING_DATA sections, carefully extract exact numbers mentioned in the article text. These contain real quarterly results, revenue, PAT, debt etc.
 
 Return this EXACT JSON structure:
 
@@ -130,8 +175,8 @@ Return this EXACT JSON structure:
 
   "catalystSentiment": {
     "socialNarrative": "Based on the news articles provided, what are retail investors discussing? What is the dominant retail thesis? Max 3 sentences.",
-    "actualCatalyst": "The single most important recent event with EXACT numbers and dates from the data. Cross-check against the financial data.",
-    "institutionalView": "What analysts are saying — specific brokerage names, ratings, target prices, dates. Only from the news data.",
+    "actualCatalyst": "The single most important recent event with EXACT numbers and dates from the data.",
+    "institutionalView": "What analysts are saying — specific brokerage names, ratings, target prices, dates. Only from the data.",
     "bottomLine": "The stock is moving because [X], but [Y] is the part nobody is talking about."
   },
 
@@ -140,69 +185,68 @@ Return this EXACT JSON structure:
       "currentPrice": "₹XXX.XX (source: yahoo_finance)",
       "fiftyTwoWeek": "High: ₹XXX | Low: ₹XXX (source: yahoo_finance)",
       "marketCap": "₹X,XXX Cr (source: yahoo_finance)",
-      "performance30d": "+XX.X% (calculate from OHLCV data if available, else data unavailable)",
-      "performance1y": "+XX.X% (calculate from OHLCV data if available, else data unavailable)",
-      "forwardPE": "X.X vs sector median X.X (source: screener_in_via_apify)",
-      "evEbitda": "X.X vs sector median X.X (source: screener_in_via_apify)",
-      "priceBook": "X.X vs sector median X.X (source: screener_in_via_apify)"
+      "performance30d": "Calculate from OHLCV if available",
+      "performance1y": "Calculate from OHLCV if available",
+      "forwardPE": "X.X (source: yahoo_finance)",
+      "evEbitda": "X.X (source: yahoo_finance)",
+      "priceBook": "X.X (source: yahoo_finance)"
     },
     "financials": {
-      "quarter": "Q4 FY26 or whatever the latest quarter is",
-      "revenue": "₹XX,XXX Cr (+XX% YoY) (source: screener_in_via_apify)",
-      "ebitda": "₹XX,XXX Cr (source: screener_in_via_apify)",
-      "ebitdaMargin": "XX.X% (changed from XX.X% YoY) (source: screener_in_via_apify)",
-      "pat": "₹X,XXX Cr (+XX% YoY) (source: screener_in_via_apify)",
-      "epsTrailing": "₹XX.XX (source: screener_in_via_apify)",
-      "epsForward": "₹XX.XX (est.) or data unavailable"
+      "quarter": "Q4 FY25 or latest quarter from FINANCIAL_RESULTS_DATA",
+      "revenue": "₹XX,XXX Cr (+XX% YoY) — extract from FINANCIAL_RESULTS_DATA articles",
+      "ebitda": "₹XX,XXX Cr — extract from FINANCIAL_RESULTS_DATA or yahoo",
+      "ebitdaMargin": "XX.X% — calculate from revenue and ebitda",
+      "pat": "₹X,XXX Cr (+XX% YoY) — extract from FINANCIAL_RESULTS_DATA articles",
+      "epsTrailing": "₹XX.XX (source: yahoo_finance)",
+      "epsForward": "₹XX.XX (source: yahoo_finance)"
     },
     "balanceSheet": {
-      "totalDebt": "₹XX,XXX Cr (source: screener_in_via_apify)",
-      "cashEquivalents": "₹XX,XXX Cr (source: screener_in_via_apify)",
+      "totalDebt": "₹XX,XXX Cr (source: yahoo_finance or BALANCE_SHEET data)",
+      "cashEquivalents": "₹XX,XXX Cr (source: yahoo_finance or BALANCE_SHEET data)",
       "netDebt": "₹XX,XXX Cr (calculated: debt - cash)",
-      "debtEquity": "X.XX (source: screener_in_via_apify)",
-      "interestCoverage": "X.Xx (source: screener_in_via_apify, or data unavailable)",
-      "shareCount": "XXX Cr (source: screener_in_via_apify)",
-      "dilution": "+X.X% YoY or flat (source: screener_in_via_apify)"
+      "debtEquity": "X.XX (source: yahoo_finance)",
+      "interestCoverage": "X.Xx or data unavailable",
+      "shareCount": "XXX Cr (source: yahoo_finance)",
+      "dilution": "data from web search or data unavailable"
     },
     "redFlags": {
-      "promoterHolding": "XX.X% (current) vs XX.X% (1 year ago) — rising/falling (source: screener_in_via_apify)",
-      "promoterPledge": "XX.X% (state if above 20% red flag threshold) (source: screener_in_via_apify, or data unavailable)",
-      "fiiChange": "XX.X% → XX.X% (last 2 quarters) (source: screener_in_via_apify, or data unavailable)",
-      "diiChange": "XX.X% → XX.X% (last 2 quarters) (source: screener_in_via_apify, or data unavailable)",
-      "relatedParty": "Any flagged related-party transactions? (source: news data, or data unavailable)"
+      "promoterHolding": "XX.X% — from BALANCE_SHEET_SHAREHOLDING_DATA or data unavailable",
+      "promoterPledge": "XX.X% or data unavailable",
+      "fiiChange": "XX.X% — from shareholding data or data unavailable",
+      "diiChange": "XX.X% — from shareholding data or data unavailable",
+      "relatedParty": "Any flagged related-party transactions or data unavailable"
     },
-    "fairValueAssessment": "Use 2 methods with math: (1) P/E method: Forward EPS × sector median P/E = ₹XXX (2) EV/EBITDA method: Forward EBITDA × sector EV/EBITDA - net debt ÷ shares = ₹XXX. Then state premium/discount %. All numbers from the data bundle."
+    "fairValueAssessment": "Use 2 methods with math: (1) P/E method: Forward EPS × sector median P/E = ₹XXX (2) EV/EBITDA method if data available. State premium/discount %."
   },
 
   "catalystCalendar": {
     "events": [
-      {"date": "YYYY-MM-DD or estimate", "event": "Event name", "details": "Details from news/data"},
-      {"date": "...", "event": "...", "details": "..."}
+      {"date": "YYYY-MM-DD or estimate", "event": "Event name", "details": "Details from news/data"}
     ]
   },
 
   "technicalSetup": {
-    "dma50": "₹XXX.XX or data unavailable (source: calculated_from_yahoo)",
-    "dma200": "₹XXX.XX or data unavailable (source: calculated_from_yahoo)",
+    "dma50": "₹XXX.XX or data unavailable",
+    "dma200": "₹XXX.XX or data unavailable",
     "priceVsDMA": "Above/below both DMAs — what this means",
-    "support1": "₹XXX (source: calculated_from_yahoo)",
-    "support2": "₹XXX (source: calculated_from_yahoo)",
-    "resistance1": "₹XXX (source: calculated_from_yahoo)",
-    "resistance2": "₹XXX (source: calculated_from_yahoo)",
+    "support1": "₹XXX",
+    "support2": "₹XXX",
+    "resistance1": "₹XXX",
+    "resistance2": "₹XXX",
     "volumeAnalysis": "From the volume signal data",
-    "rsi": "RSI value and interpretation (source: calculated_from_yahoo)"
+    "rsi": "RSI value and interpretation"
   },
 
   "priceFramework": {
     "scenarios": [
       {"label": "Bear Case", "timeframe": "3-6 months", "price": "₹XXX", "multipleUsed": "X.Xx P/E", "epsUsed": "₹XX", "rationale": "What breaks. Math shown."},
-      {"label": "Base Case", "timeframe": "6-12 months", "price": "₹XXX", "multipleUsed": "X.Xx P/E", "epsUsed": "₹XX", "rationale": "What holds. Aligned with [brokerage]. Math shown."},
+      {"label": "Base Case", "timeframe": "6-12 months", "price": "₹XXX", "multipleUsed": "X.Xx P/E", "epsUsed": "₹XX", "rationale": "What holds. Math shown."},
       {"label": "Bull Case", "timeframe": "12-18 months", "price": "₹XXX", "multipleUsed": "X.Xx P/E", "epsUsed": "₹XX", "rationale": "What works. Math shown."},
       {"label": "Stretched Bull", "timeframe": "24 months", "price": "₹XXX", "multipleUsed": "X.Xx P/E", "epsUsed": "₹XX", "rationale": "All catalysts firing. Math shown."}
     ],
-    "entryZone": "₹XXX - ₹XXX (based on technical support and fundamental floor)",
+    "entryZone": "₹XXX - ₹XXX",
     "trimLevels": "First trim at ₹XXX (+XX%), full exit at ₹XXX (+XX%)",
-    "hardStop": "₹XXX (below this, [thesis-breaking reason])",
+    "hardStop": "₹XXX (below this, thesis breaks because...)",
     "positionSizing": "Given [specific risk factor], keep position under X% of portfolio"
   },
 
@@ -220,25 +264,21 @@ Return ONLY the JSON. No markdown. No code fences. No explanation text.`;
 
 // ── Extract Tavily sources as clickable citations ────────────────────
 function buildSourceCitations(
-  newsResults: TavilyResult[] | null,
-  eventResults: TavilyResult[] | null,
+  allResults: (TavilyResult[] | null)[],
   section: string
 ): SourceCitation[] {
   const sources: SourceCitation[] = [];
   const seen = new Set<string>();
 
-  const addResults = (results: TavilyResult[] | null) => {
-    if (!results) return;
+  for (const results of allResults) {
+    if (!results) continue;
     for (const r of results) {
       if (r.url && !seen.has(r.url)) {
         seen.add(r.url);
         sources.push({ title: r.title, url: r.url, section });
       }
     }
-  };
-
-  addResults(newsResults);
-  addResults(eventResults);
+  }
   return sources;
 }
 
@@ -258,18 +298,21 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "OPENROUTER_API_KEY not configured" }, { status: 500 });
     }
 
-    // Step 1: Fetch all data in parallel
-    const [yahooResult, ohlcvResult, screenerResult, newsResult, eventsResult] =
+    // Step 1: Fetch ALL data in parallel (7 requests)
+    const [yahooResult, ohlcvResult, screenerResult, newsResult, eventsResult, financialsResult, balanceSheetResult, analystsResult] =
       await Promise.allSettled([
         fetchPriceData(ticker),
         fetchOHLCV(ticker),
         fetchScreenerData(ticker),
         searchNews(ticker, ticker),
         searchEvents(ticker, ticker),
+        searchFinancials(ticker, ticker),
+        searchBalanceSheet(ticker, ticker),
+        searchAnalystRatings(ticker, ticker),
       ]);
 
     const yahoo = yahooResult.status === "fulfilled" ? yahooResult.value : {
-      success: false, data: null, error: "Promise rejected", source: "yahoo_finance_v8", fetchedAt: new Date().toISOString()
+      success: false, data: null, error: "Promise rejected", source: "yahoo_finance", fetchedAt: new Date().toISOString()
     };
     const ohlcv = ohlcvResult.status === "fulfilled" ? ohlcvResult.value : {
       success: false, data: null, error: "Promise rejected", source: "yahoo_finance_v8", fetchedAt: new Date().toISOString()
@@ -283,6 +326,15 @@ export async function POST(request: NextRequest) {
     const events = eventsResult.status === "fulfilled" ? eventsResult.value : {
       success: false, data: null, error: "Promise rejected", source: "tavily_search", fetchedAt: new Date().toISOString()
     };
+    const financials = financialsResult.status === "fulfilled" ? financialsResult.value : {
+      success: false, data: null, error: "Promise rejected", source: "tavily_search", fetchedAt: new Date().toISOString()
+    };
+    const balanceSheet = balanceSheetResult.status === "fulfilled" ? balanceSheetResult.value : {
+      success: false, data: null, error: "Promise rejected", source: "tavily_search", fetchedAt: new Date().toISOString()
+    };
+    const analysts = analystsResult.status === "fulfilled" ? analystsResult.value : {
+      success: false, data: null, error: "Promise rejected", source: "tavily_search", fetchedAt: new Date().toISOString()
+    };
 
     // Step 2: Calculate technicals from OHLCV
     const technicals = ohlcv.success && ohlcv.data
@@ -290,9 +342,9 @@ export async function POST(request: NextRequest) {
       : { success: false, data: null, error: "No OHLCV data available", source: "calculated_from_yahoo", fetchedAt: new Date().toISOString() };
 
     // Step 3: Build source-tagged data bundle
-    const dataBundle = buildDataBundle({ yahoo, screener, technicals, news, events });
+    const dataBundle = buildDataBundle({ yahoo, screener, technicals, news, events, financials, balanceSheet, analysts });
 
-    // Step 4: Send to OpenRouter (Claude) for analysis
+    // Step 4: Send to OpenRouter for analysis
     const aiRes = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -343,24 +395,28 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Step 6: Attach real Tavily source URLs to each section
+    // Step 6: Attach real source URLs to each section
     const newsData = news.success ? news.data : null;
     const eventsData = events.success ? events.data : null;
-    const allSources = buildSourceCitations(newsData, eventsData, "general");
+    const financialsData = financials.success ? financials.data : null;
+    const balanceSheetData = balanceSheet.success ? balanceSheet.data : null;
+    const analystsData = analysts.success ? analysts.data : null;
+
+    const allSources = buildSourceCitations([newsData, eventsData, financialsData, balanceSheetData, analystsData], "general");
 
     // Merge sources into sections
     if (analysisData.catalystSentiment) {
-      analysisData.catalystSentiment.sources = allSources.slice(0, 4);
+      analysisData.catalystSentiment.sources = buildSourceCitations([newsData, analystsData], "catalyst");
     }
     if (analysisData.fundamentalSnapshot) {
       analysisData.fundamentalSnapshot.sources = [
         { title: "Screener.in Financial Data", url: `https://www.screener.in/company/${ticker}/consolidated/`, section: "fundamentals" },
         { title: "Yahoo Finance", url: `https://finance.yahoo.com/quote/${ticker}.NS/`, section: "fundamentals" },
-        ...allSources.slice(4, 7),
+        ...buildSourceCitations([financialsData, balanceSheetData], "fundamentals").slice(0, 5),
       ];
     }
     if (analysisData.catalystCalendar) {
-      analysisData.catalystCalendar.sources = allSources.slice(0, 3);
+      analysisData.catalystCalendar.sources = buildSourceCitations([eventsData, newsData], "calendar");
     }
     if (analysisData.technicalSetup) {
       analysisData.technicalSetup.sources = [
@@ -370,7 +426,7 @@ export async function POST(request: NextRequest) {
     if (analysisData.priceFramework) {
       analysisData.priceFramework.sources = [
         { title: "Screener.in Financial Data", url: `https://www.screener.in/company/${ticker}/consolidated/`, section: "priceTargets" },
-        ...allSources.slice(2, 5),
+        ...buildSourceCitations([analystsData, financialsData], "priceTargets").slice(0, 4),
       ];
     }
 
