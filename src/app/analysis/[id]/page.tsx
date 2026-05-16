@@ -13,53 +13,20 @@ import {
   Briefcase,
   ExternalLink,
   BookOpen,
+  Globe,
 } from "lucide-react";
 import { format } from "date-fns";
 import { getAnalysis } from "@/lib/store";
 import type { StockAnalysis } from "@/lib/types";
 
-interface SourceItem {
-  title: string;
-  url: string;
-  section?: string;
-}
-
-function SourceChips({ sources, label }: { sources: SourceItem[]; label: string }) {
-  if (!sources || sources.length === 0) return null;
-  const colorMap: Record<string, string> = {
-    movement: "bg-blue-500/10 text-blue-400 border-blue-500/20",
-    fundamentals: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
-    priceTargets: "bg-amber-500/10 text-amber-400 border-amber-500/20",
-  };
-  const colorClass = colorMap[label] || "bg-secondary text-muted-foreground border-border";
-
+function SourceTag({ source }: { source: string }) {
+  if (!source) return null;
   return (
-    <div className="mt-4 pt-3 border-t border-border/30">
-      <p className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider mb-2">
-        Sources for this section
-      </p>
-      <div className="flex flex-wrap gap-2">
-        {sources.map((source, idx) => (
-          <a
-            key={idx}
-            href={source.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className={`group inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded border text-[11px] font-mono hover:opacity-80 transition-opacity ${colorClass}`}
-          >
-            <ExternalLink className="w-3 h-3 shrink-0" />
-            <span className="truncate max-w-[200px]">{source.title}</span>
-            <span className="text-[9px] opacity-60 hidden sm:inline">
-              {(() => {
-                try {
-                  return new URL(source.url).hostname.replace("www.", "");
-                } catch {
-                  return "";
-                }
-              })()}
-            </span>
-          </a>
-        ))}
+    <div className="mt-3 pt-2 border-t border-border/30">
+      <div className="flex items-center gap-1.5 text-[10px] font-mono text-muted-foreground">
+        <Globe className="w-3 h-3 shrink-0 text-primary/60" />
+        <span className="opacity-70">Source:</span>
+        <span className="text-primary/80">{source}</span>
       </div>
     </div>
   );
@@ -109,10 +76,11 @@ export default function AnalysisPage() {
     analysis;
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const raw = analysis as any;
-  const movementSources: SourceItem[] = raw.movementSources || [];
-  const fundamentalSources: SourceItem[] = raw.fundamentalSources || [];
-  const priceSources: SourceItem[] = raw.priceSources || [];
+  const mv = movementAnalysis as any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const fs = fundamentalSnapshot as any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const ptf = priceTargetFramework as any;
 
   return (
     <div className="min-h-dvh pb-24">
@@ -175,6 +143,7 @@ export default function AnalysisPage() {
               <p className="text-sm leading-relaxed">
                 {movementAnalysis.socialNarrative}
               </p>
+              <SourceTag source={mv.socialNarrativeSource} />
             </div>
             <div className="bg-card border border-border p-6 rounded">
               <h3 className="text-xs font-mono text-muted-foreground uppercase mb-4 tracking-wider">
@@ -183,6 +152,7 @@ export default function AnalysisPage() {
               <p className="text-sm leading-relaxed">
                 {movementAnalysis.actualCatalyst}
               </p>
+              <SourceTag source={mv.actualCatalystSource} />
             </div>
             <div className="bg-card border border-border p-6 rounded">
               <h3 className="text-xs font-mono text-muted-foreground uppercase mb-4 tracking-wider">
@@ -191,6 +161,7 @@ export default function AnalysisPage() {
               <p className="text-sm leading-relaxed">
                 {movementAnalysis.institutionalView}
               </p>
+              <SourceTag source={mv.institutionalViewSource} />
             </div>
           </div>
 
@@ -203,9 +174,6 @@ export default function AnalysisPage() {
               <span>{movementAnalysis.oneLinerSummary}</span>
             </p>
           </div>
-
-          {/* Movement Sources */}
-          <SourceChips sources={movementSources} label="movement" />
         </section>
 
         {/* Section 2: Fundamental Snapshot */}
@@ -222,6 +190,7 @@ export default function AnalysisPage() {
               <p className="text-sm font-medium">
                 {fundamentalSnapshot.priceAndMarketCap}
               </p>
+              <SourceTag source={fs.priceAndMarketCapSource} />
             </div>
             <div className="p-5 bg-card border border-border rounded">
               <h3 className="text-xs font-mono text-muted-foreground uppercase mb-2">
@@ -230,6 +199,7 @@ export default function AnalysisPage() {
               <p className="text-sm font-medium">
                 {fundamentalSnapshot.valuationMultiples}
               </p>
+              <SourceTag source={fs.valuationMultiplesSource} />
             </div>
             <div className="p-5 bg-card border border-border rounded">
               <h3 className="text-xs font-mono text-muted-foreground uppercase mb-2">
@@ -238,6 +208,7 @@ export default function AnalysisPage() {
               <p className="text-sm font-medium">
                 {fundamentalSnapshot.growthMetrics}
               </p>
+              <SourceTag source={fs.growthMetricsSource} />
             </div>
             <div className="p-5 bg-card border border-border rounded">
               <h3 className="text-xs font-mono text-muted-foreground uppercase mb-2">
@@ -246,6 +217,7 @@ export default function AnalysisPage() {
               <p className="text-sm font-medium">
                 {fundamentalSnapshot.balanceSheet}
               </p>
+              <SourceTag source={fs.balanceSheetSource} />
             </div>
           </div>
 
@@ -257,10 +229,8 @@ export default function AnalysisPage() {
             <p className="text-sm leading-relaxed">
               {fundamentalSnapshot.fairValueAssessment}
             </p>
+            <SourceTag source={fs.fairValueAssessmentSource} />
           </div>
-
-          {/* Fundamental Sources */}
-          <SourceChips sources={fundamentalSources} label="fundamentals" />
         </section>
 
         {/* Section 3: Price Framework */}
@@ -272,7 +242,8 @@ export default function AnalysisPage() {
           {/* Scenario Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {priceTargetFramework.scenarios.map(
-              (scenario, idx: number) => (
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              (scenario: any, idx: number) => (
                 <div
                   key={idx}
                   className="bg-card border border-border rounded p-5 relative overflow-hidden group hover:border-primary/50 transition-colors"
@@ -300,6 +271,9 @@ export default function AnalysisPage() {
                   <p className="text-xs text-muted-foreground">
                     {scenario.rationale}
                   </p>
+                  {scenario.source && (
+                    <SourceTag source={scenario.source} />
+                  )}
                 </div>
               )
             )}
@@ -314,6 +288,7 @@ export default function AnalysisPage() {
               <p className="font-mono text-lg">
                 {priceTargetFramework.entryZone}
               </p>
+              <SourceTag source={ptf.entryZoneSource} />
             </div>
             <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded">
               <h4 className="text-xs font-mono text-amber-500 uppercase mb-1">
@@ -322,6 +297,7 @@ export default function AnalysisPage() {
               <p className="font-mono text-lg">
                 {priceTargetFramework.trimLevels}
               </p>
+              <SourceTag source={ptf.trimLevelsSource} />
             </div>
             <div className="p-4 bg-destructive/10 border border-destructive/20 rounded">
               <h4 className="text-xs font-mono text-destructive uppercase mb-1">
@@ -330,22 +306,19 @@ export default function AnalysisPage() {
               <p className="font-mono text-lg">
                 {priceTargetFramework.hardStop}
               </p>
+              <SourceTag source={ptf.hardStopSource} />
             </div>
           </div>
-
-          {/* Price Target Sources */}
-          <SourceChips sources={priceSources} label="priceTargets" />
         </section>
 
-        {/* Section 4: All Sources (fallback if per-section sources empty) */}
-        {analysis.sources && analysis.sources.length > 0 && 
-         movementSources.length === 0 && fundamentalSources.length === 0 && priceSources.length === 0 && (
+        {/* Section 4: Verified Sources (from Google Search grounding) */}
+        {analysis.sources && analysis.sources.length > 0 && (
           <section className="space-y-4 pt-8 border-t border-border/50">
             <h2 className="text-xl font-mono uppercase tracking-widest text-primary flex items-center gap-2 border-l-4 border-primary pl-4">
-              <BookOpen className="w-5 h-5" /> Sources
+              <BookOpen className="w-5 h-5" /> Verified Sources
             </h2>
             <p className="text-xs font-mono text-muted-foreground uppercase tracking-wider">
-              Web pages consulted during this analysis
+              Web pages searched and verified by Google during this analysis
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
               {analysis.sources.map((source, idx) => (
@@ -360,15 +333,6 @@ export default function AnalysisPage() {
                   <div className="min-w-0">
                     <p className="text-xs font-medium truncate group-hover:text-primary transition-colors">
                       {source.title}
-                    </p>
-                    <p className="text-[10px] font-mono text-muted-foreground truncate mt-0.5">
-                      {(() => {
-                        try {
-                          return new URL(source.url).hostname;
-                        } catch {
-                          return source.url;
-                        }
-                      })()}
                     </p>
                     <span
                       className={`inline-block mt-1 text-[9px] font-mono uppercase px-1.5 py-0.5 rounded ${

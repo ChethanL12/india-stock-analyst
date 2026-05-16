@@ -20,9 +20,8 @@ Search the web thoroughly using these specific sources:
 - Moneycontrol.com for quarterly results, balance sheet, and analyst recommendations
 - Economic Times, Livemint, Business Standard for recent news and catalysts
 - TradingView for technical levels and chart data
-- Company investor relations page for latest presentations
 
-Return a JSON object with EXACTLY this structure (no other text, no markdown, no code fences):
+Return a JSON object with EXACTLY this structure. For EVERY data field, also include a corresponding "_source" field stating the exact website name you got that data from:
 
 {
   "ticker": "NSE ticker symbol",
@@ -31,16 +30,24 @@ Return a JSON object with EXACTLY this structure (no other text, no markdown, no
   "sector": "Sector classification",
   "movementAnalysis": {
     "socialNarrative": "What retail investors on X/Twitter, Reddit, TradingView community, Moneycontrol forums are saying. Mention specific themes, hashtags, or debates. Max 3 sentences.",
-    "actualCatalyst": "The specific catalyst with EXACT numbers and dates. E.g., 'Q4 FY26 results announced on April 29, 2026 showed revenue of ₹51,524 Cr (+29% YoY), PAT of ₹9,352 Cr (+89% YoY)'. Be this specific.",
-    "institutionalView": "Name specific brokerages with their exact target prices and dates. E.g., 'ICICI Direct on April 24, 2026 maintained HOLD with TP ₹308. Motilal Oswal has TP ₹857 as of May 7, 2026.' Be this specific.",
-    "oneLinerSummary": "The stock is moving because [specific catalyst], but [the overlooked risk/factor nobody discusses] is the part nobody is talking about."
+    "socialNarrativeSource": "e.g. X/Twitter, Reddit r/IndianStockMarket, TradingView",
+    "actualCatalyst": "The specific catalyst with EXACT numbers and dates. Be very specific with earnings numbers, dates, percentages.",
+    "actualCatalystSource": "e.g. BSE Filing dated April 29 2026, Moneycontrol Quarterly Results",
+    "institutionalView": "Name specific brokerages with their exact target prices and dates.",
+    "institutionalViewSource": "e.g. Trendlyne Forecaster, ICICI Direct Research, Motilal Oswal Report",
+    "oneLinerSummary": "The stock is moving because [specific catalyst], but [the overlooked risk] is the part nobody is talking about."
   },
   "fundamentalSnapshot": {
     "priceAndMarketCap": "₹XXX.XX | Market Cap: ₹X.XXL Cr | 30D: +XX.X%",
-    "valuationMultiples": "Forward P/E: X.X (sector avg: Y.Y) | EV/Sales: X.X (sector avg: Y.Y). One-line interpretation of whether cheap/expensive vs peers.",
-    "growthMetrics": "Q[X] FY[YY] Revenue: ₹XX,XXX Cr (+XX% YoY) | PAT: ₹X,XXX Cr (+XX% YoY). Key highlights: EBITDA margin, ARPU, subscriber count, or segment-specific metrics.",
-    "balanceSheet": "Cash: ₹XX,XXX Cr | Debt: ₹XX,XXX Cr | Net Debt/Equity: X.X | Shares outstanding: XXX Cr (dilution: +X.X% YoY or flat)",
-    "fairValueAssessment": "Show the math: 'Using FY27 EPS of ₹XX and a peer multiple of X.Xx gives fair value of ₹XXX. Current price of ₹XXX implies X% discount/premium.' One paragraph max."
+    "priceAndMarketCapSource": "e.g. NSE India, Google Finance",
+    "valuationMultiples": "Forward P/E: X.X (sector avg: Y.Y) | EV/Sales: X.X (sector avg: Y.Y). One-line interpretation.",
+    "valuationMultiplesSource": "e.g. Screener.in Peer Comparison, Trendlyne",
+    "growthMetrics": "Q[X] FY[YY] Revenue: ₹XX,XXX Cr (+XX% YoY) | PAT: ₹X,XXX Cr (+XX% YoY). Key highlights.",
+    "growthMetricsSource": "e.g. Screener.in Quarterly Results, BSE Filing",
+    "balanceSheet": "Cash: ₹XX,XXX Cr | Debt: ₹XX,XXX Cr | Net Debt/Equity: X.X | Shares outstanding: XXX Cr",
+    "balanceSheetSource": "e.g. Screener.in Balance Sheet, Moneycontrol Financials",
+    "fairValueAssessment": "Show the math: 'Using FY27 EPS of ₹XX and a peer multiple of X.Xx gives fair value of ₹XXX.'",
+    "fairValueAssessmentSource": "e.g. Screener.in, Trendlyne Forecaster, Alpha Spread"
   },
   "priceTargetFramework": {
     "scenarios": [
@@ -48,38 +55,45 @@ Return a JSON object with EXACTLY this structure (no other text, no markdown, no
         "label": "Bear Case",
         "timeframe": "3-6 months",
         "price": "₹XXX",
-        "rationale": "If [specific negative catalyst]. Math: X.Xx EPS of ₹XX = ₹XXX"
+        "rationale": "If [negative catalyst]. Math: X.Xx EPS of ₹XX = ₹XXX",
+        "source": "e.g. Own calculation based on Screener.in EPS data"
       },
       {
         "label": "Base Case",
         "timeframe": "6-12 months",
         "price": "₹XXX",
-        "rationale": "If execution holds. Math: X.Xx EPS of ₹XX = ₹XXX. Aligned with [brokerage] fair value of ₹XXX."
+        "rationale": "If execution holds. Math: X.Xx EPS of ₹XX = ₹XXX.",
+        "source": "e.g. Trendlyne consensus, ICICI Direct TP"
       },
       {
         "label": "Bull Case",
         "timeframe": "12-18 months",
         "price": "₹XXX",
-        "rationale": "If [specific positive catalysts]. Math: X.Xx EPS of ₹XX = ₹XXX"
+        "rationale": "If [positive catalysts]. Math: X.Xx EPS of ₹XX = ₹XXX",
+        "source": "e.g. Motilal Oswal bull case, own calculation"
       },
       {
         "label": "Stretched Bull",
         "timeframe": "24 months",
         "price": "₹XXX",
-        "rationale": "All catalysts firing. Math: X.Xx EPS of ₹XX = ₹XXX"
+        "rationale": "All catalysts firing. Math: X.Xx EPS of ₹XX = ₹XXX",
+        "source": "e.g. Own projection from Screener.in growth data"
       }
     ],
     "entryZone": "₹XXX - ₹XXX (cite technical support level or brokerage accumulation zone)",
-    "trimLevels": "First trim at ₹XXX (+XX% from current), full exit at ₹XXX (+XX%)",
-    "hardStop": "₹XXX (below this, [specific thesis-breaking reason])"
+    "entryZoneSource": "e.g. TradingView support levels, Trendlyne",
+    "trimLevels": "First trim at ₹XXX (+XX%), full exit at ₹XXX (+XX%)",
+    "trimLevelsSource": "e.g. Trendlyne consensus TP, resistance levels",
+    "hardStop": "₹XXX (below this, [specific thesis-breaking reason])",
+    "hardStopSource": "e.g. 52-week low from NSE, key support from TradingView"
   }
 }
 
 CRITICAL RULES:
-1. Every number must be sourced from actual web search results. Do not fabricate data.
-2. Do NOT include a "sources" field in your JSON - sources are tracked automatically.
-3. Cross-reference key numbers (price, market cap, P/E) across at least 2 sources.
-4. For price targets, cite specific brokerage names and their published targets with dates.
+1. Every number must come from actual web search results. Do not fabricate.
+2. The "_source" and "source" fields must name the ACTUAL website/report you got each data point from. Be specific (e.g. "Screener.in Balance Sheet" not just "various sources").
+3. Do NOT include URLs in source fields — just the website/report name.
+4. Cross-reference key numbers across at least 2 sources.
 5. Use ₹ symbol for all Rupee amounts.
 
 Return ONLY the JSON. No markdown. No code fences. No explanation.`;
@@ -133,9 +147,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // ONLY use Gemini's grounding metadata for sources — these are REAL URLs
-    // that Google actually searched. Never use AI-generated URLs (they hallucinate).
-    const sources: Array<{ title: string; url: string; section: string }> = [];
+    // Extract grounding metadata sources (real clickable URLs)
+    const groundingSources: Array<{ title: string; url: string; section: string }> = [];
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const candidate = response.candidates?.[0] as any;
     const groundingMetadata = candidate?.groundingMetadata;
@@ -146,74 +159,18 @@ export async function POST(request: NextRequest) {
         const web = chunk.web;
         if (web?.uri && !seen.has(web.uri)) {
           seen.add(web.uri);
-
-          // Categorize based on the page title (more reliable than proxy URL)
           const title = (web.title || "").toLowerCase();
           let section = "general";
-
-          if (
-            title.includes("target") ||
-            title.includes("forecast") ||
-            title.includes("analyst") ||
-            title.includes("brokerage") ||
-            title.includes("research report") ||
-            title.includes("price prediction") ||
-            title.includes("trendlyne")
-          ) {
+          if (title.includes("target") || title.includes("forecast") || title.includes("analyst") || title.includes("brokerage") || title.includes("trendlyne")) {
             section = "priceTargets";
-          } else if (
-            title.includes("financial") ||
-            title.includes("balance sheet") ||
-            title.includes("quarterly") ||
-            title.includes("result") ||
-            title.includes("revenue") ||
-            title.includes("screener") ||
-            title.includes("share price") ||
-            title.includes("market cap") ||
-            title.includes("p/e") ||
-            title.includes("ratio")
-          ) {
+          } else if (title.includes("financial") || title.includes("balance") || title.includes("quarterly") || title.includes("result") || title.includes("revenue") || title.includes("screener") || title.includes("share price") || title.includes("ratio")) {
             section = "fundamentals";
-          } else if (
-            title.includes("news") ||
-            title.includes("catalyst") ||
-            title.includes("announce") ||
-            title.includes("deal") ||
-            title.includes("contract") ||
-            title.includes("upgrade") ||
-            title.includes("downgrade") ||
-            title.includes("investor") ||
-            title.includes("sentiment") ||
-            title.includes("social")
-          ) {
+          } else if (title.includes("news") || title.includes("announce") || title.includes("deal") || title.includes("upgrade") || title.includes("downgrade") || title.includes("sentiment")) {
             section = "movement";
           }
-
-          sources.push({
-            title: web.title || "Source",
-            url: web.uri,
-            section,
-          });
+          groundingSources.push({ title: web.title || "Source", url: web.uri, section });
         }
       }
-    }
-
-    // Group sources by section for per-section display
-    const movementSources = sources.filter((s) => s.section === "movement");
-    const fundamentalSources = sources.filter((s) => s.section === "fundamentals");
-    const priceSources = sources.filter((s) => s.section === "priceTargets");
-    const generalSources = sources.filter((s) => s.section === "general");
-
-    // Distribute general sources to the section with fewest sources
-    for (const gs of generalSources) {
-      const counts = [
-        { arr: movementSources, label: "movement" },
-        { arr: fundamentalSources, label: "fundamentals" },
-        { arr: priceSources, label: "priceTargets" },
-      ];
-      counts.sort((a, b) => a.arr.length - b.arr.length);
-      gs.section = counts[0].label;
-      counts[0].arr.push(gs);
     }
 
     const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -227,10 +184,7 @@ export async function POST(request: NextRequest) {
       movementAnalysis: analysisData.movementAnalysis ?? {},
       fundamentalSnapshot: analysisData.fundamentalSnapshot ?? {},
       priceTargetFramework: analysisData.priceTargetFramework ?? {},
-      sources,
-      movementSources,
-      fundamentalSources,
-      priceSources,
+      sources: groundingSources,
       analyzedAt: new Date().toISOString(),
     });
   } catch (err) {
