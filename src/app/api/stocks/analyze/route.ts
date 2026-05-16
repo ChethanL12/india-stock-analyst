@@ -302,8 +302,8 @@ export async function POST(request: NextRequest) {
         "X-Title": "India Stock Analyst",
       },
       body: JSON.stringify({
-        model: "anthropic/claude-sonnet-4.5",
-        max_tokens: 8000,
+        model: "google/gemini-2.5-flash",
+        max_tokens: 4096,
         temperature: 0.2,
         messages: [
           {
