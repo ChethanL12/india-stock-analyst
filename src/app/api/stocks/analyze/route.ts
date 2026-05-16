@@ -22,7 +22,7 @@ Search the web thoroughly using these specific sources:
 - TradingView for technical levels and chart data
 - Company investor relations page for latest presentations
 
-Return a JSON object with EXACTLY this structure. For EACH section, provide the specific sources you used for that section's data:
+Return a JSON object with EXACTLY this structure (no other text, no markdown, no code fences):
 
 {
   "ticker": "NSE ticker symbol",
@@ -33,20 +33,14 @@ Return a JSON object with EXACTLY this structure. For EACH section, provide the 
     "socialNarrative": "What retail investors on X/Twitter, Reddit, TradingView community, Moneycontrol forums are saying. Mention specific themes, hashtags, or debates. Max 3 sentences.",
     "actualCatalyst": "The specific catalyst with EXACT numbers and dates. E.g., 'Q4 FY26 results announced on April 29, 2026 showed revenue of ₹51,524 Cr (+29% YoY), PAT of ₹9,352 Cr (+89% YoY)'. Be this specific.",
     "institutionalView": "Name specific brokerages with their exact target prices and dates. E.g., 'ICICI Direct on April 24, 2026 maintained HOLD with TP ₹308. Motilal Oswal has TP ₹857 as of May 7, 2026.' Be this specific.",
-    "oneLinerSummary": "The stock is moving because [specific catalyst], but [the overlooked risk/factor nobody discusses] is the part nobody is talking about.",
-    "sources": [
-      {"title": "Exact article/page title", "url": "https://real-source-url.com/specific-page"}
-    ]
+    "oneLinerSummary": "The stock is moving because [specific catalyst], but [the overlooked risk/factor nobody discusses] is the part nobody is talking about."
   },
   "fundamentalSnapshot": {
     "priceAndMarketCap": "₹XXX.XX | Market Cap: ₹X.XXL Cr | 30D: +XX.X%",
     "valuationMultiples": "Forward P/E: X.X (sector avg: Y.Y) | EV/Sales: X.X (sector avg: Y.Y). One-line interpretation of whether cheap/expensive vs peers.",
     "growthMetrics": "Q[X] FY[YY] Revenue: ₹XX,XXX Cr (+XX% YoY) | PAT: ₹X,XXX Cr (+XX% YoY). Key highlights: EBITDA margin, ARPU, subscriber count, or segment-specific metrics.",
     "balanceSheet": "Cash: ₹XX,XXX Cr | Debt: ₹XX,XXX Cr | Net Debt/Equity: X.X | Shares outstanding: XXX Cr (dilution: +X.X% YoY or flat)",
-    "fairValueAssessment": "Show the math: 'Using FY27 EPS of ₹XX and a peer multiple of X.Xx gives fair value of ₹XXX. Current price of ₹XXX implies X% discount/premium.' One paragraph max.",
-    "sources": [
-      {"title": "Exact page title from Screener/NSE/Moneycontrol", "url": "https://real-url.com/page"}
-    ]
+    "fairValueAssessment": "Show the math: 'Using FY27 EPS of ₹XX and a peer multiple of X.Xx gives fair value of ₹XXX. Current price of ₹XXX implies X% discount/premium.' One paragraph max."
   },
   "priceTargetFramework": {
     "scenarios": [
@@ -76,29 +70,19 @@ Return a JSON object with EXACTLY this structure. For EACH section, provide the 
       }
     ],
     "entryZone": "₹XXX - ₹XXX (cite technical support level or brokerage accumulation zone)",
-    "trimLevels": "First trim at ₹XXX (+XX% from ₹XXX), full exit at ₹XXX (+XX% from ₹XXX)",
-    "hardStop": "₹XXX (below this, [specific thesis-breaking reason])",
-    "sources": [
-      {"title": "Brokerage report or analyst page title", "url": "https://trendlyne.com/or/moneycontrol/page"}
-    ]
+    "trimLevels": "First trim at ₹XXX (+XX% from current), full exit at ₹XXX (+XX%)",
+    "hardStop": "₹XXX (below this, [specific thesis-breaking reason])"
   }
 }
 
 CRITICAL RULES:
 1. Every number must be sourced from actual web search results. Do not fabricate data.
-2. Each section has its own "sources" array. List 2-4 REAL source URLs per section.
-3. Source URLs must be actual website URLs (screener.in, trendlyne.com, moneycontrol.com, nseindia.com, etc.)
-4. NEVER use Google proxy URLs (vertexaisearch.cloud.google.com). Only real source URLs.
-5. Cross-reference key numbers (price, market cap, P/E) across at least 2 sources.
-6. For price targets, cite specific brokerage names and their published targets with dates.
-7. Use ₹ symbol for all Rupee amounts.
+2. Do NOT include a "sources" field in your JSON - sources are tracked automatically.
+3. Cross-reference key numbers (price, market cap, P/E) across at least 2 sources.
+4. For price targets, cite specific brokerage names and their published targets with dates.
+5. Use ₹ symbol for all Rupee amounts.
 
 Return ONLY the JSON. No markdown. No code fences. No explanation.`;
-
-interface SourceItem {
-  title: string;
-  url: string;
-}
 
 export async function POST(request: NextRequest) {
   try {
@@ -149,33 +133,88 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Clean sources - filter out proxy URLs
-    const cleanSources = (sources: SourceItem[] | undefined): SourceItem[] => {
-      if (!Array.isArray(sources)) return [];
-      return sources.filter(
-        (s) => s.url && s.url.startsWith("http") && !s.url.includes("vertexaisearch")
-      );
-    };
+    // ONLY use Gemini's grounding metadata for sources — these are REAL URLs
+    // that Google actually searched. Never use AI-generated URLs (they hallucinate).
+    const sources: Array<{ title: string; url: string; section: string }> = [];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const candidate = response.candidates?.[0] as any;
+    const groundingMetadata = candidate?.groundingMetadata;
 
-    // Extract per-section sources
-    const movementSources = cleanSources(analysisData.movementAnalysis?.sources);
-    const fundamentalSources = cleanSources(analysisData.fundamentalSnapshot?.sources);
-    const priceSources = cleanSources(analysisData.priceTargetFramework?.sources);
+    if (groundingMetadata?.groundingChunks) {
+      const seen = new Set<string>();
+      for (const chunk of groundingMetadata.groundingChunks) {
+        const web = chunk.web;
+        if (web?.uri && !seen.has(web.uri)) {
+          seen.add(web.uri);
 
-    // Build all sources list (for backward compat)
-    const allSources = [
-      ...movementSources.map((s: SourceItem) => ({ ...s, section: "movement" })),
-      ...fundamentalSources.map((s: SourceItem) => ({ ...s, section: "fundamentals" })),
-      ...priceSources.map((s: SourceItem) => ({ ...s, section: "priceTargets" })),
-    ];
+          // Categorize based on the page title (more reliable than proxy URL)
+          const title = (web.title || "").toLowerCase();
+          let section = "general";
 
-    // Remove sources from nested objects before sending (they'll be top-level)
-    const movementAnalysis = { ...analysisData.movementAnalysis };
-    delete movementAnalysis.sources;
-    const fundamentalSnapshot = { ...analysisData.fundamentalSnapshot };
-    delete fundamentalSnapshot.sources;
-    const priceTargetFramework = { ...analysisData.priceTargetFramework };
-    delete priceTargetFramework.sources;
+          if (
+            title.includes("target") ||
+            title.includes("forecast") ||
+            title.includes("analyst") ||
+            title.includes("brokerage") ||
+            title.includes("research report") ||
+            title.includes("price prediction") ||
+            title.includes("trendlyne")
+          ) {
+            section = "priceTargets";
+          } else if (
+            title.includes("financial") ||
+            title.includes("balance sheet") ||
+            title.includes("quarterly") ||
+            title.includes("result") ||
+            title.includes("revenue") ||
+            title.includes("screener") ||
+            title.includes("share price") ||
+            title.includes("market cap") ||
+            title.includes("p/e") ||
+            title.includes("ratio")
+          ) {
+            section = "fundamentals";
+          } else if (
+            title.includes("news") ||
+            title.includes("catalyst") ||
+            title.includes("announce") ||
+            title.includes("deal") ||
+            title.includes("contract") ||
+            title.includes("upgrade") ||
+            title.includes("downgrade") ||
+            title.includes("investor") ||
+            title.includes("sentiment") ||
+            title.includes("social")
+          ) {
+            section = "movement";
+          }
+
+          sources.push({
+            title: web.title || "Source",
+            url: web.uri,
+            section,
+          });
+        }
+      }
+    }
+
+    // Group sources by section for per-section display
+    const movementSources = sources.filter((s) => s.section === "movement");
+    const fundamentalSources = sources.filter((s) => s.section === "fundamentals");
+    const priceSources = sources.filter((s) => s.section === "priceTargets");
+    const generalSources = sources.filter((s) => s.section === "general");
+
+    // Distribute general sources to the section with fewest sources
+    for (const gs of generalSources) {
+      const counts = [
+        { arr: movementSources, label: "movement" },
+        { arr: fundamentalSources, label: "fundamentals" },
+        { arr: priceSources, label: "priceTargets" },
+      ];
+      counts.sort((a, b) => a.arr.length - b.arr.length);
+      gs.section = counts[0].label;
+      counts[0].arr.push(gs);
+    }
 
     const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
@@ -185,10 +224,10 @@ export async function POST(request: NextRequest) {
       companyName: analysisData.companyName || query.trim(),
       exchange: analysisData.exchange || "NSE",
       sector: analysisData.sector || "Unknown",
-      movementAnalysis,
-      fundamentalSnapshot,
-      priceTargetFramework,
-      sources: allSources,
+      movementAnalysis: analysisData.movementAnalysis ?? {},
+      fundamentalSnapshot: analysisData.fundamentalSnapshot ?? {},
+      priceTargetFramework: analysisData.priceTargetFramework ?? {},
+      sources,
       movementSources,
       fundamentalSources,
       priceSources,
